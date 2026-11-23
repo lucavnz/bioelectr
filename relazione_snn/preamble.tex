@@ -1,0 +1,203 @@
+% ==============================================================================
+% PREAMBOLO — Stile accademico LaTeX classico (sobrio, bianco e nero standard)
+% ==============================================================================
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[italian]{babel}
+\usepackage{csquotes}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% Geometria pagina standard bilanciata
+\usepackage[
+  a4paper,
+  top=2.5cm,
+  bottom=2.5cm,
+  left=2.4cm,
+  right=2.4cm
+]{geometry}
+\usepackage{placeins}
+
+% Matematica e unita' di misura (standard italiano con virgola decimale)
+\usepackage{amsmath, amssymb, mathtools}
+\usepackage{siunitx}
+\sisetup{
+  locale = DE,
+  output-decimal-marker = {,},
+  group-separator = {\,},
+  group-minimum-digits = 4,
+  per-mode = symbol,
+  range-phrase = {--},
+  range-units = single,
+  detect-all = true
+}
+\DeclareSIUnit\bit{bit}
+\DeclareSIUnit\byte{B}
+\DeclareSIUnit\spike{spike}
+\DeclareSIUnit\event{evento}
+\DeclareSIUnit\events{eventi}
+\DeclareSIUnit\ch{ch}
+\DeclareSIUnit\hop{hop}
+\DeclareSIUnit\class{class.}
+
+% Palette neutrale in scala di grigi (stile classico LaTeX da stampa)
+\usepackage[dvipsnames, svgnames, table]{xcolor}
+\definecolor{NavyPrimary}{gray}{0.10}
+\definecolor{TealAccent}{gray}{0.25}
+\definecolor{CoralAccent}{gray}{0.20}
+\definecolor{AmberAccent}{gray}{0.35}
+\definecolor{SlateText}{gray}{0.15}
+\definecolor{LightBg}{gray}{0.96}
+\definecolor{WarmBg}{gray}{0.93}
+\definecolor{TealBg}{gray}{0.94}
+\definecolor{RuleGray}{gray}{0.75}
+
+% Sfondi neutri molto tenui per i blocchi circuitali
+\definecolor{BlockNMDA}{gray}{0.94}
+\definecolor{BlockLEAK}{gray}{0.91}
+\definecolor{BlockAHP}{gray}{0.95}
+\definecolor{BlockNa}{gray}{0.92}
+\definecolor{BlockK}{gray}{0.96}
+\definecolor{BlockRed}{gray}{0.93}
+
+% Grafica, figure, sottotitoli e tabelle standard
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\usepackage{multirow}
+\usepackage{makecell}
+\usepackage{pdflscape}
+\usepackage{rotating}
+\usepackage{enumitem}
+\setlist{nosep, leftmargin=*, topsep=4pt}
+
+% Didascalie standard LaTeX in nero
+\usepackage[
+  font=small,
+  labelfont=bf,
+  margin=6pt
+]{caption}
+
+% Circuiti CMOS (CircuiTikZ), diagrammi a blocchi (TikZ) e grafici (PGFPlots)
+\usepackage[siunitx, RPvoltages]{circuitikz}
+\ctikzset{
+  transistors/scale=0.82,
+  resistors/scale=0.78,
+  capacitors/scale=0.78,
+  sources/scale=0.78,
+  amplifiers/scale=0.78,
+  logic ports/scale=0.75,
+  tripoles/mos style/arrows
+}
+\usetikzlibrary{
+  arrows.meta,
+  positioning,
+  calc,
+  fit,
+  backgrounds,
+  shapes.geometric,
+  shapes.multipart,
+  decorations.pathreplacing
+}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepgfplotslibrary{groupplots}
+
+% Riquadri di sintesi sobri in stile classico bianco/grigio
+\usepackage[most]{tcolorbox}
+\newtcolorbox{sintesiBox}[1]{
+  enhanced,
+  breakable,
+  colback=gray!4,
+  colframe=black!70,
+  colbacktitle=gray!12,
+  coltitle=black,
+  fonttitle=\bfseries\small,
+  title={#1},
+  boxrule=0.5pt,
+  titlerule=0.4pt,
+  arc=1.5pt,
+  left=8pt, right=8pt, top=6pt, bottom=6pt,
+  before skip=10pt, after skip=10pt
+}
+
+\newtcolorbox{criticaBox}[2][]{
+  enhanced,
+  breakable,
+  colback=gray!4,
+  colframe=black!80,
+  colbacktitle=gray!15,
+  coltitle=black,
+  fonttitle=\bfseries\small,
+  title={#2},
+  boxrule=0.6pt,
+  titlerule=0.4pt,
+  arc=1.5pt,
+  left=8pt, right=8pt, top=6pt, bottom=6pt,
+  before skip=10pt, after skip=10pt,
+  #1
+}
+
+\newtcolorbox{notaTecnica}[1]{
+  enhanced,
+  breakable,
+  colback=white,
+  colframe=black!60,
+  colbacktitle=gray!10,
+  coltitle=black,
+  fonttitle=\bfseries\small,
+  title={#1},
+  boxrule=0.5pt,
+  titlerule=0.4pt,
+  arc=1.5pt,
+  left=8pt, right=8pt, top=6pt, bottom=6pt,
+  before skip=8pt, after skip=8pt
+}
+
+% Stile di pagina standard LaTeX (numero di pagina pulito in basso, zero decorazioni)
+\pagestyle{plain}
+
+% Bibliografia con BibLaTeX + Biber (stile numerico standard)
+\usepackage[
+  backend=biber,
+  style=numeric-comp,
+  sorting=none,
+  maxbibnames=6,
+  minbibnames=3,
+  giveninits=true,
+  doi=true,
+  url=false,
+  isbn=false
+]{biblatex}
+\addbibresource{bibliografia.bib}
+
+% Collegamenti ipertestuali cliccabili ma completamente neri (stile standard)
+\usepackage[
+  hidelinks,
+  bookmarksopen=true,
+  bookmarksnumbered=true
+]{hyperref}
+
+% Scorciatoie tipografiche utili e coerenti
+\newcommand{\Vmem}{V_{\mathrm{mem}}}
+\newcommand{\Vthr}{V_{\mathrm{thr}}}
+\newcommand{\Vrst}{V_{\mathrm{rst}}}
+\newcommand{\Vrest}{V_{\mathrm{rest}}}
+\newcommand{\Vdd}{V_{\mathrm{DD}}}
+\newcommand{\Cmem}{C_{\mathrm{mem}}}
+\newcommand{\Csyn}{C_{\mathrm{syn}}}
+\newcommand{\Isyn}{I_{\mathrm{syn}}}
+\newcommand{\Imem}{I_{\mathrm{mem}}}
+\newcommand{\Iin}{I_{\mathrm{in}}}
+\newcommand{\UT}{U_{\mathrm{T}}}
+\newcommand{\ND}{\text{N.D.}}
+
+% Spaziatura paragrafi pulita e leggibile
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\renewcommand{\arraystretch}{1.18}

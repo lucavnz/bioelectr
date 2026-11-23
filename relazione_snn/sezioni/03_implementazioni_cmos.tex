@@ -1,0 +1,306 @@
+% ==============================================================================
+% SEZIONE 3 — IMPLEMENTAZIONI CIRCUITALI CMOS DI NEURONI E PROCESSORI SPIKING
+% ==============================================================================
+\section[Implementazioni circuitali CMOS]{Implementazioni circuitali CMOS di neuroni e architetture neuromorfiche}
+\label{sec:cmos}
+
+\subsection{Stili progettuali e tassonomia dei neuroni in silicio}
+\label{subsec:tassonomia_cmos}
+
+La realizzazione fisica di un neurone spiking in tecnologia CMOS (\emph{Silicon Neuron}, SiN) non ammette un'unica soluzione ottima universale: come in biologia esistono molteplici classi neuronali, così in microelettronica la scelta circuitale dipende dal compromesso richiesto tra consumo energetico, fedeltà biofisica, scala temporale, area di silicio e tolleranza al \emph{mismatch} di processo~\cite{indiveri2011}. Riprendendo la classificazione di Indiveri et al.\ (2011)~\cite{indiveri2011}, la Tabella~\ref{tab:tassonomia_sin} riassume i cinque blocchi computazionali tipici di un soma in silicio e le principali dicotomie progettuali.
+
+\begin{table}[tb]
+  \centering
+  \caption[Blocchi funzionali e dicotomie progettuali CMOS]{Blocchi funzionali e dicotomie progettuali per la realizzazione CMOS di neuroni in silicio (adattato da Indiveri et al., 2011~\cite{indiveri2011}).}
+  \label{tab:tassonomia_sin}
+  \footnotesize
+  \begin{tabularx}{\textwidth}{@{}L{3.1cm} Y Y@{}}
+    \toprule
+    \textbf{Dimensione progettuale} & \textbf{Opzione A} & \textbf{Opzione B} \\
+    \midrule
+    Regime MOSFET & \textbf{Inversione debole (sottosoglia):} trasporto per diffusione, correnti $\SI{}{\femto\ampere}\text{--}\SI{}{\nano\ampere}$, potenza minima, costanti di tempo biologiche \emph{real-time}, ma elevato \emph{mismatch}. & \textbf{Inversione forte (soprasoglia):} trasporto per deriva (\emph{drift}), correnti $10^4\text{--}10^5\times$ più grandi, basso \emph{mismatch}, ma tempi accelerati ($10^3\text{--}10^4\times$) o capacità esterne. \\
+    Dominio del segnale & \textbf{Current-mode (log-domain):} stato espresso in corrente ($\Imem$); alta efficienza energetica e compattezza in sottosoglia. & \textbf{Voltage-mode:} stato espresso in tensione ($\Vmem$); mappatura intuitiva delle equazioni differenziali. \\
+    Gestione del tempo & \textbf{Tempo continuo (\emph{non-clocked}):} nessun clock globale, dinamica fisica diretta, zero consumo di distribuzione clock. & \textbf{Tempo discreto (\emph{Switched-Capacitor} / Digitale):} resistenze equivalenti precise via clock; alta riproducibilità ma costo del clock. \\
+    Livello di astrazione & \textbf{Biofisico (conduttanze):} emula singoli canali ionici (es.\ H--H, canale T talamico). & \textbf{Fenomenologico (I\&F / Izhikevich / AdEx):} astrae la dinamica con 1--2 variabili di stato; alta densità di integrazione. \\
+    \midrule
+    \multicolumn{3}{@{}p{\textwidth}@{}}{\textbf{Blocchi funzionali del soma:} (1) Integrazione temporale (lineare/non lineare); (2) Generazione dello spike/evento; (3) Meccanismo di periodo refrattario; (4) Adattamento della frequenza di firing (SFA); (5) Adattamento della soglia di disparo.} \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Per i dispositivi biomedicali impiantabili, il \textbf{regime sottosoglia (\emph{weak inversion})} riveste un interesse cruciale. In tale regione la corrente di drain di un MOSFET in saturazione dipende esponenzialmente dalla tensione gate-source:
+\begin{equation}
+  I_D = I_0 \exp\!\left(\frac{\kappa V_{\mathrm{GS}}}{\UT}\right),
+  \label{eq:subthreshold}
+\end{equation}
+dove $I_0$ è la corrente caratteristica di \emph{dark current}, $\kappa$ è il fattore di accoppiamento capacitivo gate-canale (tipicamente $0{,}6\text{--}0{,}8$) e $\UT = k_B T/q \approx \SI{26}{\milli\volt}$ a temperatura ambiente è la tensione termica~\cite{indiveri2011, bartels2025}. Questa legge esponenziale permette di operare con correnti nell'ordine dei picoampere--nanoampere e quindi di sintetizzare \textbf{costanti di tempo biologiche} ($\tau = \Cmem \UT / (\kappa I_\tau) \approx 10\text{--}\SI{100}{\milli\second}$) utilizzando condensatori integrati molto compatti ($\sim\SI{0{,}1}{\pico\farad}\text{--}\SI{1}{\pico\farad}$), senza ricorrere a resistori passivi enormi né a condensatori esterni~\cite{indiveri2011, qiao2015}. Per contro, la stessa dipendenza esponenziale amplifica l'impatto delle variazioni casuali di tensione di soglia $\Delta V_{\mathrm{th}}$ tra transistori nominalmente identici (\emph{device mismatch}, regolato dalla legge di Pelgrom $\sigma_{\Delta V_{\mathrm{th}}} \propto 1/\sqrt{WL}$), generando dispersioni significative nelle correnti di bias e nelle frequenze di firing~\cite{indiveri2011, qiao2015}.
+
+\subsection{Blocchi circuitali CMOS fondamentali}
+\label{subsec:blocchi_fondamentali}
+
+\subsubsection{Integrazione temporale e circuiti log-domain (Tau-Cell, LPF e DPI)}
+La dinamica della membrana passiva e delle correnti sinaptiche segue equazioni differenziali del primo ordine della forma $\tau \dot{y} + y = x$. In modalità tensione, lo storico \emph{follower-integrator} (OTA in retroazione negativa su un condensatore) offre una conduttanza di leak regolabile ma con dinamica lineare ristretta~\cite{indiveri2011}. In modalità corrente sottosoglia, una strategia molto più efficiente consiste nei \textbf{circuiti \emph{log-domain}}, che sfruttano il principio translineare dei MOSFET in inversione debole per realizzare filtri del primo ordine compatti~\cite{indiveri2011}:
+\begin{itemize}
+  \item \textbf{Tau-Cell} (Figura~\ref{fig:log_domain}A): filtro passa-basso \emph{log-domain} sottosoglia usato sia per sinapsi a conduttanza sia come integratore di membrana nel neurone Tau-Cell~\cite{indiveri2011}.
+  \item \textbf{Log-domain LPF} (Figura~\ref{fig:log_domain}B): integratore compatto di impulsi di tensione in ingresso $V_{\mathrm{in}}$; la costante di tempo è regolata da $V_\tau$ e l'ampiezza massima della corrente d'uscita $\Isyn$ dipende da $V_w$ e $V_\tau$~\cite{indiveri2011}.
+  \item \textbf{Differential Pair Integrator (DPI)} (Figura~\ref{fig:log_domain}C): introdotto da Bartolozzi e Indiveri (2007) e ripreso in~\cite{indiveri2011}, utilizza una coppia differenziale in retroazione negativa per integrare gli impulsi di tensione in corrente di uscita $\Isyn$ con salita rapida e decadimento esponenziale. Il DPI introduce un grado di libertà aggiuntivo tramite il bias $V_{\mathrm{thr}}$, che controlla il guadagno in corrente indipendentemente dalla costante di tempo $\tau_{\mathrm{syn}}$~\cite{indiveri2011, bartels2025}:
+  \begin{equation}
+    \tau_{\mathrm{syn}} \frac{\mathrm{d}\Isyn}{\mathrm{d}t} + \Isyn = \frac{I_w I_{\mathrm{thr}}}{I_\tau} \quad (\text{durante lo spike}),
+    \qquad \tau_{\mathrm{syn}} = \frac{\Csyn \UT}{\kappa I_\tau},
+    \label{eq:dpi_syn}
+  \end{equation}
+  dove $I_\tau = I_0 \exp(\kappa V_\tau/\UT)$ e $I_{\mathrm{thr}}$ è la corrente associata a $V_{\mathrm{thr}}$. Grazie alla sua compattezza e versatilità, il DPI costituisce il mattone fondamentale dei neuroni e delle sinapsi di ROLLS, DYNAPs e DYNAP-SE2~\cite{qiao2015, moradi2018, bartels2025}.
+\end{itemize}
+
+% --- FIGURA 3.1: Blocchi integratori log-domain (da Indiveri et al., 2011, Fig. 1) ---
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=0.98\textwidth]{indiveri_log_domain.png}
+  \caption[Integratori temporali CMOS \emph{log-domain} sottosoglia]{Principali integratori temporali CMOS \emph{log-domain} in inversione debole descritti in Indiveri et al.\ (2011)~\cite{indiveri2011}: (A) circuito \emph{Tau-Cell}; (B) filtro passa-basso sottosoglia del primo ordine; (C) \emph{Differential Pair Integrator} (DPI), dotato del bias aggiuntivo $V_{\mathrm{thr}}$ per il controllo indipendente del guadagno. Riprodotto da Indiveri et al.\ (2011)~\cite{indiveri2011}, licenza CC BY.}
+  \label{fig:log_domain}
+\end{figure}
+
+Un ulteriore blocco fondamentale per ottenere costanti di tempo molto lunghe (centinaia di millisecondi, necessarie ad esempio per i recettori NMDA in ROLLS~\cite{qiao2015}) consiste negli \textbf{specchi di corrente per correnti bassissime (\emph{shifted-source})}~\cite{indiveri2011}: collegando il source dei transistori a una tensione positiva $V_{\mathrm{nsh}} \approx \SI{0{,}4}{\volt}$ (tramite traslatore di livello), è possibile polarizzare i MOSFET con $V_{\mathrm{GS}} < 0$ e gestire correnti di pico- o femtoampere ben al di sotto della corrente di perdita a $V_{\mathrm{GS}} = 0$. Analogamente, i blocchi \textbf{Digi-MOS} (scale resistive MOS controllate da una parola digitale, es.\ a 5 bit) permettono di regolare digitalmente il rapporto $(W/L)_{\mathrm{eff}}$ di un transistore per calibrare il \emph{mismatch} in DC~\cite{indiveri2011}.
+
+\subsubsection{Generazione dello spike, soglia esplicita e periodo refrattario}
+Per generare eventi discreti al raggiungimento della soglia di membrana, i circuiti storici più rappresentativi confrontati da Indiveri et al.\ (2011)~\cite{indiveri2011} illustrano chiaramente l'evoluzione del compromesso tra compattezza, potenza e controllo dei parametri:
+
+\begin{itemize}
+  \item \textbf{Circuito Axon-Hillock} (Mead, 1989; Figura~\ref{fig:spike_gen}a): integra $\Iin$ su $\Cmem$; quando $\Vmem$ raggiunge la soglia di commutazione dell'amplificatore non invertente $A$ (tipicamente due inverter in serie), $V_{\mathrm{out}}$ commuta a $\Vdd$, attivando una retroazione positiva attraverso il partitore capacitivo $C_{\mathrm{fb}}/\Cmem$ e accendendo il transistore di reset $I_r$ controllato da $V_{\mathrm{pw}}$. Il suo grande pregio è l'ottimo \emph{matching} (dipendente principalmente dal rapporto tra capacità); il suo difetto principale è il \textbf{notevole consumo di potenza di cortocircuito}: poiché $\Vmem$ varia lentamente su scale di millisecondi, il primo inverter trascorre molto tempo nella regione di transizione con nMOS e pMOS contemporaneamente accesi~\cite{indiveri2011}. Inoltre, la soglia non è regolabile elettricamente ma fissata dal processo.
+  \item \textbf{Neurone I\&F con amplificatore di tensione} (van Schaik, 2001; Figura~\ref{fig:spike_gen}b): supera i limiti dell'Axon-Hillock introducendo un OTA a 5 transistori che confronta $\Vmem$ con una soglia esplicita $\Vthr$, un nMOS di leak ($V_{\mathrm{lk}}$) e due inverter limitati in corrente (\emph{starved inverters}) che modellano le conduttanze $\mathrm{Na}^+$ e $\mathrm{K}^+$. Al superamento di $\Vthr$, la corrente $I_{\mathrm{Na}}$ porta rapidamente verso l'alto $\Vmem$, mentre $I_{\mathrm{Kup}}$ carica il condensatore $C_K$ determinando la durata dello spike; quando la tensione su $C_K$ accende $M_2$, la corrente $I_K$ scarica $\Cmem$ e la scarica lenta di $C_K$ attraverso $I_{\mathrm{Kdn}}$ impone un \textbf{periodo refrattario esplicito}~\cite{indiveri2011}.
+  \item \textbf{Neurone Octopus Retina} (Culurciello et al., 2003): risolve in modo radicale la corrente di cortocircuito impiegando una \textbf{retroazione positiva in corrente} che riutilizza la corrente stessa dello stadio generatore per accelerare di $\sim 100\times$ la transizione a soglia e disconnette $\Cmem$ durante il reset. Riduce la potenza di generazione di $\sim 25\times$, raggiungendo un'energia inferiore a \textbf{\SI{4}{\pico\joule\per\spike}} persino in un processo datato CMOS \SI{0{,}6}{\micro\meter}~\cite{indiveri2011}.
+  \item \textbf{Neurone differenziatore DVS} (Lichtsteiner et al., 2008): blocca l'offset DC con un condensatore di accoppiamento e inserisce un amplificatore a retroazione capacitiva di guadagno $A_1 \approx -20$ a monte dei comparatori ON/OFF; così un \emph{mismatch} di \SI{20}{\milli\volt} sui comparatori si riduce a \SI{1}{\milli\volt} riferito all'ingresso ($\sim 2\%$ a $1\sigma$ su un array di 16k pixel)~\cite{indiveri2011}.
+\end{itemize}
+
+% --- FIGURA 3.2: Axon-Hillock e van Schaik Voltage-Amplifier I&F (da Indiveri et al., 2011, Fig. 3 e 4) ---
+\begin{figure}[tb]
+  \centering
+  \begin{subfigure}[b]{0.415\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{indiveri_axon_hillock.png}
+    \caption{Circuito \emph{Axon-Hillock} (Mead, 1989): schema (A) e forme d'onda di $\Vmem$ e $V_{\mathrm{out}}$ (B).}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.535\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{indiveri_vanschaik_ota.png}
+    \caption{Neurone I\&F con OTA e \emph{starved inverters} (van Schaik, 2001): schema (A) e dinamica di $\Vmem$ (B).}
+  \end{subfigure}
+  \caption[Circuiti fondamentali di generazione spike (Axon-Hillock e van Schaik)]{Confronto tra due circuiti fondamentali di generazione dello spike da Indiveri et al.\ (2011)~\cite{indiveri2011}: (a) \emph{Axon-Hillock}, compatto ma soggetto a correnti di cortocircuito e soglia non regolabile; (b) neurone a comparatore di tensione con soglia esplicita $\Vthr$ e controllo indipendente di durata dello spike ($I_{\mathrm{Kup}}$) e periodo refrattario ($I_{\mathrm{Kdn}}$). Riprodotto da Indiveri et al.\ (2011)~\cite{indiveri2011}, licenza CC BY.}
+  \label{fig:spike_gen}
+\end{figure}
+
+\subsection{Architetture di singoli neuroni in silicio: confronto tra famiglie CMOS}
+\label{subsec:famiglie_neuroni}
+
+Combinando i blocchi descritti, la letteratura sintetizzata da Indiveri et al.\ (2011)~\cite{indiveri2011} copre quattro grandi famiglie di neuroni CMOS:
+
+\begin{enumerate}
+  \item \textbf{Modelli biofisici sottosoglia:} riproducono direttamente la fisica dei canali ionici, come il \emph{Thalamic Relay Neuron} a due compartimenti di Hynna e Boahen (che emula un canale calcio di tipo T tramite un circuito termodinamico a due transistori per generare sia modalità tonica sia \emph{bursting}) o il neurone \emph{Hodgkin--Huxley sottosoglia} di Yu e Cauwenberghs (basato su \emph{tau-cell} e reti translineari $x^3 y g$ con DAC per programmare 24 variabili di gating)~\cite{indiveri2011}. Sono eccellenti per neuroscienze computazionali ma poco compatti per grandi array impiantabili.
+  \item \textbf{Neuroni I\&F generalizzati sottosoglia (\emph{log-domain}):} rappresentano il miglior compromesso tra ricchezza dinamica, area e potenza per sistemi \emph{real-time}. Oltre al \emph{Tau-Cell neuron} e al \emph{Log-domain LPF Neuron} (LLN, fabbricato in \SI{0{,}25}{\micro\meter}, $50\text{--}\SI{1000}{\nano\watt}$, dotato di feedback positivo cubico $\nu^3/3$ e filtro di adattamento~\cite{indiveri2011}), l'architettura di riferimento per la maggior parte dei chip moderni è il \textbf{neurone DPI (Adaptive Exponential I\&F)}~\cite{indiveri2011, qiao2015}. Esso integra un DPI di ingresso per il leak, un amplificatore generatore di spike con retroazione positiva in corrente ereditato dall'Octopus neuron, un blocco di reset/refrattarietà con handshaking AER e un secondo DPI in retroazione negativa per la corrente lenta di adattamento $I_g$. In modalità corrente, la sua dinamica segue l'equazione AdEx-I\&F~\cite{indiveri2011, bartels2025}:
+  \begin{equation}
+    \tau\!\left(1 + \frac{I_{\mathrm{thr}}}{\Imem}\right)\frac{\mathrm{d}\Imem}{\mathrm{d}t} + \Imem = \frac{I_{\mathrm{thr}}}{I_\tau}\bigl(\Iin - I_\tau - I_g\bigr) + f(\Imem),
+    \label{eq:dpi_adex}
+  \end{equation}
+  dove $f(\Imem)$ è una funzione esponenziale della corrente di membrana $\Imem$ e $\tau = \Cmem\UT/(\kappa I_\tau)$~\cite{indiveri2011, bartels2025}.
+  \item \textbf{Architetture soprasoglia e a tempo accelerato:} operando i MOSFET in inversione forte si riduce il \emph{mismatch}, ma le correnti più elevate impongono di accelerare la scala temporale di $10^3\text{--}10^5\times$ rispetto al tempo biologico (se si vogliono mantenere capacità integrate piccole). Esempi chiave sono il \textbf{neurone quadratico di Izhikevich} di Wijekoon e Dudek (\SI{0{,}35}{\micro\meter} CMOS, 14 transistori, accelerazione $10^4\times$, consumo $<\SI{10}{\pico\joule\per\spike}$, adattabile anche in sottosoglia per tempo biologico)~\cite{indiveri2011} e il neurone a conduttanze controllate in corrente di Schemmel ($10^4\text{--}10^5\times$, calibrabile quantitativamente su simulazioni software NEST)~\cite{indiveri2011}. I sistemi accelerati sono ideali per simulazioni offline veloci, ma poco adatti all'interazione diretta \emph{real-time} con i biosegnali di un impianto.
+  \item \textbf{Architetture a condensatori commutati (S-C), a pacchetti di carica e digitali:} il neurone \textbf{Mihalas--Niebur \emph{switched-capacitor}} realizza resistenze equivalenti accurate tramite interruttori clockati, riproducendo ben 10 comportamenti biologici senza tarature fini e con ottima ripetibilità, al prezzo della distribuzione globale di clock multifase~\cite{indiveri2011}. Analogamente, i neuroni a pacchetti di carica calibrati con Digi-MOS ($90 \times \SI{90}{\micro\meter\squared}$ in \SI{0{,}35}{\micro\meter}, precisione 3 bit+segno) e i \textbf{neuroni interamente digitali} con sommatore/accumulatore ($100 \times \SI{100}{\micro\meter\squared}$ in \SI{0{,}35}{\micro\meter}, accumulatore a 18 bit, durata spike \SI{50}{\nano\second}) azzerano il \emph{mismatch} analogico a fronte di un maggiore consumo dinamico di commutazione e area logica~\cite{indiveri2011}.
+\end{enumerate}
+
+\subsection{Analisi approfondita dei processori CMOS della bibliografia}
+\label{subsec:processori_cmos}
+
+\subsubsection{ROLLS (Qiao et al., 2015): processore mixed-signal con apprendimento on-line}
+\label{subsec:rolls_cmos}
+
+Il processore \textbf{ROLLS} (\emph{Reconfigurable On-Line Learning Spiking neuromorphic processor})~\cite{qiao2015}, realizzato in tecnologia standard CMOS \SI{180}{\nano\meter} 1P6M, occupa \SI{51{,}4}{\milli\meter\squared} con circa 12,2 milioni di transistori e integra \textbf{256 neuroni} AdEx-I\&F analogici affiancati da \textbf{128k sinapsi analogiche} (64k sinapsi plastiche a lungo termine LTP e 64k sinapsi programmabili a breve termine STP), più 512 ``sinapsi virtuali'' lineari multiplexabili nel tempo, un generatore di bias on-chip compensato in temperatura (BiasGen), un ADC a modulazione di frequenza d'impulsi per il monitoraggio e logica asincrona AER (bus d'ingresso a 21 bit, bus d'uscita a 8 bit con arbitro per la gestione delle collisioni). Il consumo medio in esperimenti tipici (reti ad attrattori) è di circa \textbf{\SI{4}{\milli\watt}}~\cite{qiao2015}.
+
+% --- FIGURA 3.3: Schema CMOS del neurone AdEx-I&F di ROLLS (da Qiao et al., 2015, Fig. 3) ---
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=\textwidth]{rolls_neuron_schematic.png}
+  \caption[Schema CMOS del neurone AdEx-I\&F DPI di ROLLS]{Schema a livello di transistore del neurone AdEx-I\&F basato su DPI del processore ROLLS~\cite{qiao2015} (derivato da Indiveri et al.~\cite{indiveri2011}). Si distinguono i cinque blocchi funzionali: gating NMDA ($M_{N1\text{--}N2}$), leak DPI con doppia costante di tempo e \emph{shifted-source} \texttt{SSN!} ($M_{L1\text{--}L7}$), adattamento AHP ($M_{A1\text{--}A7}$), feedback positivo $\mathrm{Na}^+$ ($M_{\mathrm{Na1\text{--}Na5}}$) e reset/refrattarietà $\mathrm{K}^+$ con protocollo AER ($M_{K1\text{--}K8}$). Riprodotto da Qiao et al.\ (2015)~\cite{qiao2015}, licenza CC BY.}
+  \label{fig:rolls_neuron_schematic}
+\end{figure}
+
+La Figura~\ref{fig:rolls_neuron_schematic} riporta lo schema a livello di transistore del \textbf{neurone AdEx-I\&F} di ROLLS~\cite{qiao2015}, evoluzione diretta del neurone DPI di Indiveri et al.~\cite{indiveri2011}. Esso comprende 13 parametri globali regolabili dal BiasGen (indicati con ``!'') e cinque blocchi:
+\begin{itemize}
+  \item \textbf{NMDA ($M_{N1}, M_{N2}$):} modula le correnti sinaptiche lente in funzione del potenziale di membrana $\Vmem$ (meccanismo di \emph{voltage-gating});
+  \item \textbf{LEAK ($M_{L1}\text{--}M_{L7}$):} circuito DPI di ingresso dotato di due selettori digitali (\texttt{if\_tau1!}/\texttt{if\_tau2!}) e di polarizzazione \emph{shifted-source} (\texttt{SSN!}) per sintetizzare costanti di tempo fino a centinaia di millisecondi;
+  \item \textbf{AHP ($M_{A1}\text{--}M_{A7}$):} secondo circuito DPI in retroazione negativa che integra gli spike emessi dal neurone stesso (tramite \texttt{/ACK}) sulla capacità $C_A$, generando una corrente lenta di iperpolarizzazione che produce adattamento della frequenza e \emph{bursting};
+  \item \textbf{Blocco $\mathrm{Na}^+$ ($M_{\mathrm{Na1}}\text{--}M_{\mathrm{Na5}}$):} implementa la retroazione positiva in corrente al superamento della soglia, accelerando la salita dello spike;
+  \item \textbf{Blocco $\mathrm{K}^+$ ($M_{K1}\text{--}M_{K8}$):} genera la richiesta AER \texttt{/REQ} e, tramite il condensatore $C_R$ e i rami \texttt{if\_rfr1!}/\texttt{if\_rfr2!}, fissa il periodo refrattario e riporta $\Vmem$ a un potenziale di reset programmabile $V_{\mathrm{rst}}$ (tramite $M_{K8}$).
+\end{itemize}
+
+Un risultato ingegneristico di rilievo in ROLLS riguarda il \textbf{contenimento del \emph{mismatch} analogico}: sovradimensionando in modo mirato i transistori critici che controllano la costante di tempo di leak ($M_{L4}, M_{L5}$ con $W/L = \SI{2}{\micro\meter}/\SI{4}{\micro\meter}$) e la soglia di disparo ($M_{\mathrm{Na3}}$ con $\SI{4}{\micro\meter}/\SI{0{,}4}{\micro\meter}$ e $M_{\mathrm{Na4}}$ con $\SI{1}{\micro\meter}/\SI{4}{\micro\meter}$), gli autori hanno ridotto la variabilità media della curva $f\text{--}I$ sull'intero array di 256 neuroni ad appena il \textbf{9,4\%} (Figura~\ref{fig:rolls_silicio}b), un valore eccezionalmente contenuto per circuiti analogici sottosoglia~\cite{qiao2015}.
+
+\begin{figure}[tb]
+  \centering
+  \begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{rolls_die.png}
+    \caption{Microfotografia del die ROLLS (\SI{51{,}4}{\milli\meter\squared}, \SI{180}{\nano\meter}).}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{rolls_fi_mismatch.png}
+    \caption{Curva $f\text{--}I$ media e varianza dei 256 neuroni (mismatch 9,4\%).}
+  \end{subfigure}
+  \vspace{0.3cm}
+  \begin{subfigure}[b]{0.92\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{rolls_behaviors.png}
+    \caption{Comportamenti misurati su silicio: reset regolabile, periodo refrattario, adattamento SFA e \emph{bursting}.}
+  \end{subfigure}
+  \caption[Caratterizzazione sperimentale del processore ROLLS]{Caratterizzazione sperimentale del processore ROLLS~\cite{qiao2015}: (a) distribuzione fisica del die, dove gli array sinaptici STP (33,32\%) e LTP (31,41\%) dominano rispetto ai 256 neuroni (0,47\%); (b) risposta in frequenza media e deviazione standard al variare della corrente iniettata; (c) tracciati misurati del potenziale di membrana $\Vmem(t)$. Riprodotto da Qiao et al.\ (2015)~\cite{qiao2015}, licenza CC BY.}
+  \label{fig:rolls_silicio}
+\end{figure}
+
+Sul fronte delle sinapsi, ROLLS adotta due strategie chiave. Primo, per risparmiare area, sfrutta la legge di Kirchhoff alle correnti sommando le correnti di tutte le sinapsi di una stessa riga in un \textbf{unico filtro DPI condiviso per riga} (un DPI lento NMDA nell'array LTP e due DPI AMPA/GABA nell'array STP)~\cite{qiao2015}. Secondo, per risolvere il problema della conservazione a lungo termine dei pesi analogici volatili, l'array LTP implementa la regola di plasticità \textbf{bistabile con \emph{stop-learning}} di Brader et al.\ (2007)~\cite{qiao2015}: all'arrivo di uno spike pre-sinaptico, la variabile interna $w_i$ (tensione $V_w$) viene incrementata o decrementata in base allo stato di $\Vmem$ e alla concentrazione di calcio post-sinaptica (misurata da un DPI dedicato e da tre comparatori Winner-Take-All nel blocco post-sinaptico), mentre un amplificatore a retroazione positiva (blocco \texttt{BIST}) spinge lentamente $V_w$ verso uno dei due stati stabili ($w_{\min}$ o $w_{\max}$), eliminando la deriva dei pesi~\cite{qiao2015}. L'array STP dispone invece di pesi digitali a 2 bit (eccitatori o inibitori) e di un circuito analogico di depressione a breve termine (STD). Nonostante la condivisione dei DPI, la Tabella~1 di Qiao et al.~\cite{qiao2015} svela un dato cruciale: i 256 neuroni ($55{,}69 \times \SI{16{,}48}{\micro\meter\squared}$ ciascuno, \SI{0{,}235}{\milli\meter\squared} totali) occupano solo lo \textbf{0,47\%} del chip, mentre le sinapsi LTP (31,41\%) e STP (33,32\%) assorbono insieme il \textbf{64,73\%} dell'intera superficie (\SI{33{,}28}{\milli\meter\squared})!
+
+\subsubsection{NET-TEN (Ronchini et al., 2023): rete analogica ultra-low-power a 250 mV}
+\label{subsec:netten_cmos}
+
+A differenza di un processore general-purpose riconfigurabile come ROLLS, \textbf{NET-TEN}~\cite{ronchini2023} dimostra cosa accade quando l'intera architettura CMOS viene progettata su misura per un'applicazione impiantabile, eliminando routing digitale, memorie SRAM/CAM e BiasGen integrati. Fabbricato anch'esso in CMOS \SI{180}{\nano\meter} ma alimentato a soli \textbf{$\Vdd = \SI{250}{\milli\volt}$}, il chip occupa \SI{1{,}08}{\milli\meter\squared} e integra 30 neuroni Izhikevich sottosoglia organizzati in 3 strati \emph{feed-forward} sparsi (10--10--10, con fan-in e fan-out pari a 2 tra primo e secondo strato e connessioni 1-a-1 tra strato nascosto e uscita) più 30 sinapsi EPSC+STDP (Figura~\ref{fig:netten_circuits})~\cite{ronchini2023}.
+
+% --- FIGURA 3.5: Topologia, Neurone Izhikevich, EPSC e STDP di NET-TEN (da Ronchini et al., 2023, Fig. 3) ---
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=0.90\textwidth]{netten_circuits.png}
+  \caption[Topologia e schemi CMOS sottosoglia di NET-TEN]{Architettura e schemi CMOS sottosoglia di NET-TEN~\cite{ronchini2023} ($\Vdd = \SI{250}{\milli\volt}$): (a) topologia \emph{feed-forward} sparsa a 3 strati da 10 neuroni ciascuno; (b) neurone Izhikevich \emph{voltage-mode} ($M_1\text{--}M_{12}$, $C_v = \SI{76{,}86}{\femto\farad}$, $C_u = \SI{614{,}88}{\femto\farad}$, area \SI{1476{,}84}{\micro\meter\squared}); (c) generatore EPSC ($M_{E1}\text{--}M_{E4}$, picco \SI{486{,}39}{\pico\ampere}, $\tau = \SI{212{,}83}{\micro\second}$, area \SI{462{,}09}{\micro\meter\squared}); (d) circuito STDP sottosoglia ($M_{S1}\text{--}M_{S12}$, $C_w = \SI{206{,}30}{\femto\farad}$, area \SI{1054{,}75}{\micro\meter\squared}). Riprodotto da Ronchini et al.\ (2023)~\cite{ronchini2023}, licenza CC BY 4.0.}
+  \label{fig:netten_circuits}
+\end{figure}
+
+Nel neurone di NET-TEN (Figura~\ref{fig:netten_circuits}b, area \SI{1476{,}84}{\micro\meter\squared}), le due variabili di stato del modello di Izhikevich ($\Vmem$ e $U$) risiedono sui condensatori integrati $C_v = \SI{76{,}86}{\femto\farad}$ e $C_u = \SI{614{,}88}{\femto\farad}$ (ottimizzati mediante analisi Monte Carlo per attenuare le variazioni di processo). Lo specchio $M_1\text{--}M_3$ applica un feedback positivo su $\Vmem$, bilanciato dalla corrente di leak $I_{M4}$ controllata da $U$; lo specchio $M_1, M_2, M_7$ accoppia $\Vmem$ a $U$, mentre $M_6$ fornisce il decadimento negativo su $C_u$. Due inverter in cascata ($M_9\text{--}M_{12}$) fungono da comparatore a soglia fissa generando sia l'impulso negativo di reset di $U$ (tramite $M_8$ e $V_D$) sia quello positivo di reset di $\Vmem$ (tramite $M_5$ e $V_C$). Il circuito EPSC ($M_{E1}\text{--}M_{E4}$, area \SI{462{,}09}{\micro\meter\squared}, Figura~\ref{fig:netten_circuits}c) precarica $C_{\mathrm{syn}}$ a $\Vdd$ tramite $M_{E3}$ e lo scarica all'arrivo dello spike \texttt{pre} con una corrente proporzionale al peso $V_w$, producendo su $M_{E4}$ (in sottosoglia) una corrente post-sinaptica esponenziale con picco di \SI{486{,}39}{\pico\ampere} e costante di tempo $\tau = \SI{212{,}83}{\micro\second}$ (a $V_w = \SI{200}{\milli\volt}$). Infine, il circuito STDP sottosoglia (derivato da Indiveri, area \SI{1054{,}75}{\micro\meter\squared}, Figura~\ref{fig:netten_circuits}d) memorizza il peso su $C_w = \SI{206{,}30}{\femto\farad}$, garantendo un'evoluzione adattativa su scale di decine di millisecondi~\cite{ronchini2023}.
+
+NET-TEN mette in luce con grande chiarezza i due compromessi fisici del design interamente sottosoglia a \SI{250}{\milli\volt}:
+\begin{itemize}
+  \item \textbf{Variabilità (\emph{mismatch}) bifronte:} con bias globali identici, il \emph{mismatch} crea una naturale diversità funzionale fra neuroni (utile come espansione in caratteristiche casuali), ma oltre una certa soglia rende alcuni neuroni silenti o sempre attivi — motivo per cui solo 4 canali su 10 risultano utili e non sono identificabili a priori~\cite{ronchini2023}.
+  \item \textbf{Ridotta capacità di pilotaggio (\emph{drivability}):} le correnti sub-nanoampere limitano il \emph{fan-out} senza ingrandire i transistori, imponendo la connettività sparsa (fan-out 2) e rendendo necessari buffer operazionali esterni (MAX44280, capacità d'ingresso \SI{0{,}4}{\pico\farad}) per osservare le uscite su PCB~\cite{ronchini2023}.
+\end{itemize}
+
+\subsubsection{DYNAPs (Moradi et al., 2018): scalabilità multi-core, memorie eterogenee e routing asincrono}
+\label{subsec:dynaps_cmos}
+
+Quando si passa da piccole reti dedicate (30 neuroni in NET-TEN) o da un singolo array (256 neuroni in ROLLS) a sistemi neuromorfici scalabili con migliaia o milioni di neuroni ed elevato \emph{fan-out} ($F \sim 10^3\text{--}10^4$), il vero collo di bottiglia non è più il circuito del singolo neurone, bensì la \textbf{memoria necessaria per memorizzare la connettività e l'energia per instradare gli spike}~\cite{moradi2018}.
+
+In uno schema di routing convenzionale punto-punto per $N$ neuroni con fan-out $F$, ciascun neurone deve memorizzare $F \log_2(N)$ bit di indirizzi (es.\ \SI{160}{\kilo\bit\per\text{neurone}} per $N = 2^{20} \approx 10^6$ e $F \approx 10^4$). Per abbattere tale costo senza sacrificare la programmabilità né ricorrere a DRAM esterne, Moradi et al.\ (2018)~\cite{moradi2018} introducono nei processori \textbf{DYNAPs} (\emph{Dynamic Neuromorphic Asynchronous Processors}) uno \textbf{schema di routing a due stadi basato su tag condivisi}, ispirato alla connettività a cluster della corteccia cerebrale:
+\begin{enumerate}
+  \item i neuroni sono raggruppati in $N/C$ core (cluster) di dimensione $C$;
+  \item nel \textbf{primo stadio} (routing sorgente punto-punto), il router locale \textbf{R1} legge una SRAM di sorgente e invia un \emph{tag} di $\log_2(K)$ bit a $F/M$ nodi intermedi (core di destinazione);
+  \item nel \textbf{secondo stadio} (\emph{broadcast} locale), il tag viene diffuso a tutti i $C$ neuroni del core di destinazione, ciascuno dotato di una memoria associativa asincrona \textbf{CAM} (\emph{Content-Addressable Memory}) che accetta lo spike solo se il tag coincide con una delle sue sinapsi sottoscritte ($M$ neuroni sottoscritti per tag; Figura~\ref{fig:dynaps_routing}b).
+\end{enumerate}
+
+Minimizzando la somma di memoria sorgente $\mathrm{MEM}_S$ e memoria destinazione $\mathrm{MEM}_T$ rispetto al parametro di compromesso $M$ (con $\alpha = K/C = 1$), Moradi et al.\ dimostrano che la memoria per neurone si riduce a~\cite{moradi2018}:
+\begin{equation}
+  \mathrm{MEM} = \frac{F}{M}\log_2\!\left(\frac{KN}{C}\right) + \frac{KM}{C}\log_2(K)
+  \;\xrightarrow[\alpha=1]{M = M^*}\;
+  \mathrm{MEM}_{\min} = 2\sqrt{F \log_2(C)\log_2(N)}\;\;\text{bit/neurone}.
+  \label{eq:dynaps_mem}
+\end{equation}
+Per una rete da un milione di neuroni ($N=2^{20}$, $F=2^{13}$, $C=256$), ciò abbatte la memoria da \textbf{160k bit/neurone a meno di 1,2k bit/neurone} (oltre $130\times$ di riduzione), assicurando inoltre uno scaling lineare anziché quadratico rispetto a IBM TrueNorth nell'implementazione di CNN~\cite{moradi2018}.
+
+% --- FIGURA 3.6: Architettura di routing R1-R2-R3 e nodo eterogeneo DYNAPs (da Moradi et al., 2018, Fig. 2 e 9) ---
+\begin{figure}[tbp]
+  \centering
+  \begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{dynaps_routing_tree.png}
+    \caption{Rete di routing gerarchica ad albero (R1, R2) e mesh 2D (R3).}
+  \end{subfigure}
+
+  \vspace{0.35cm}
+  \begin{subfigure}[b]{0.76\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{dynaps_node.png}
+    \caption{Schema a blocchi di uno dei 256 nodi \emph{in-memory} di ciascun core.}
+  \end{subfigure}
+  \caption[Architettura di routing e nodo \emph{in-memory} di DYNAPs]{Architettura del processore multi-core DYNAPs~\cite{moradi2018}: (a) rete di routing asincrona QDI gerarchica (router locali R1 per core, R2 ad albero multi-livello intra-chip e R3 a mesh 2D XY tra chip); (b) struttura del singolo nodo di calcolo e memoria eterogenea distribuita (64 CAM da 10 bit, 64 SRAM da 2 bit, generatori/estensori/decodificatori d'impulsi PG/PE/DEC, 4 filtri DPI e 1 neurone analogico Leaky I\&F con blocco di handshaking HS). Riprodotto da Moradi et al.\ (2018)~\cite{moradi2018}.}
+  \label{fig:dynaps_routing}
+\end{figure}
+
+Il chip prototipo DYNAPs è fabbricato in CMOS \SI{180}{\nano\meter} 1P6M (\SI{43{,}79}{\milli\meter\squared} totali, \SI{38{,}5}{\milli\meter\squared} di core) con tensione di alimentazione riducibile fino a \SI{1{,}3}{\volt} (nominale \SI{1{,}8}{\volt}), e integra \textbf{4 core da 256 neuroni} (1024 neuroni AdEx-I\&F DPI, 64k sinapsi con fan-in 64 e fan-out 4k, 64k celle CAM + 4k SRAM). I router R1, R2 e R3 (Figura~\ref{fig:dynaps_routing}a) sono sintetizzati con logica digitale asincrona \emph{Quasi Delay-Insensitive} (QDI) a codifica \emph{dual-rail} (latenza di attraversamento inter-chip di \SI{15{,}4}{\nano\second}, latenza interna di R3 di \SI{2{,}5}{\nano\second}, energia per \emph{hop} di \SI{17}{\pico\joule} a \SI{1{,}3}{\volt}, tempo di broadcast nella CAM di \SI{27}{\nano\second})~\cite{moradi2018}. Come visibile nella Figura~\ref{fig:dynaps_silicio}a (ingrandimento del nodo) e nella Tabella~I di Moradi et al.~\cite{moradi2018}, la memoria on-chip (31,7\%), gli estensori/decodificatori d'impulsi (25,2\%) e i router (9,7\%) occupano complessivamente il \textbf{66,6\%} dell'area core, mentre neuroni e sinapsi analogiche rappresentano solo il \textbf{22,8\%}. Ancora più illuminante è la Figura~\ref{fig:dynaps_silicio}b: al crescere della frequenza di firing fino a \SI{100}{\hertz}, la potenza della logica digitale di routing e CAM cresce molto più rapidamente di quella analogica, arrivando a rappresentare circa i due terzi della dissipazione totale a \SI{1{,}8}{\volt} ($\sim\SI{1{,}8}{\milli\watt}$ digitali su $\sim\SI{2{,}7}{\milli\watt}$ totali)~\cite{moradi2018}.
+
+\begin{figure}[tb]
+  \centering
+  \begin{subfigure}[b]{0.52\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{dynaps_die.png}
+    \caption{Microfotografia del die DYNAPs (\SI{43{,}79}{\milli\meter\squared}) e zoom del nodo.}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.45\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{dynaps_power_freq.png}
+    \caption{Potenza analogica e digitale misurata vs frequenza di firing.}
+  \end{subfigure}
+  \caption[Caratterizzazione hardware del processore DYNAPs]{Caratterizzazione hardware del processore multi-core DYNAPs~\cite{moradi2018}: (a) layout dei 4 core, router R1/R2/R3 e BiasGen, con dettaglio del singolo nodo che evidenzia l'ampia superficie occupata da CAM e Pulse Extender/Decoder rispetto al piccolo neurone I\&F e ai 4 DPI; (b) potenza totale impilata (analogica in basso, digitale in alto) al variare della frequenza di disparo di tutti i 1024 neuroni per $\Vdd = 1{,}3; 1{,}5; \SI{1{,}8}{\volt}$. Riprodotto da Moradi et al.\ (2018)~\cite{moradi2018}.}
+  \label{fig:dynaps_silicio}
+\end{figure}
+
+L'evoluzione successiva \textbf{DYNAP-SE2} (utilizzata da Bartels et al.~\cite{bartels2025}) mantiene la medesima architettura \emph{mixed-signal} a 4 core in \SI{180}{\nano\meter} con neuroni AdEx-I\&F DPI e sinapsi a 4 tipi (AMPA, NMDA, GABA-A shunting, GABA-B), aggiungendo però l'AFE+ADM sullo stesso die e pesi a 4 bit; il suo \emph{mismatch} misurato sui parametri di bias sottosoglia ha un coefficiente di variazione (CV) del \textbf{20--30\%}, che gli autori compensano sfruttando la topologia ricorrente/NLNG anziché pesi precisi~\cite{bartels2025}. Per contrasto, il chip \textbf{Xylo} (Li et al.~\cite{li2024}) rappresenta il polo \textbf{interamente digitale} (CMOS \SI{28}{\nano\meter}, \SI{6{,}5}{\milli\meter\squared}, $\Vdd = \SI{1{,}8}{\volt}$ core / \SI{2{,}5}{\volt} I/O, clock fino a \SI{250}{\mega\hertz}, \SI{124}{\kilo\byte} SRAM): i 1000 neuroni LIF digitali con decadimento \emph{bit-shift} e pesi a 8 bit presentano \textbf{zero \emph{mismatch} analogico} e pieno supporto al training off-chip tramite BPTT, ma al prezzo di un consumo stabile di \SI{287{,}9}{\micro\watt} nel core (più \SI{87{,}4}{\micro\watt} I/O) e di una piccola perdita di accuratezza dovuta alla quantizzazione ($\sim 3{,}4\text{--}4{,}3$ punti percentuali)~\cite{li2024}.
+
+\subsection{Tabelle comparative e risposta alla seconda domanda centrale}
+\label{subsec:tabelle_cmos}
+
+Le Tabelle~\ref{tab:confronto_neuroni} e~\ref{tab:confronto_sistemi} (riportate in formato orizzontale nelle pagine seguenti per la massima leggibilità) raccolgono sistematicamente tutti i parametri richiesti dalla consegna (tensione di alimentazione, consumo statico, potenza media, energia per spike, area, frequenza di firing e variabilità) rispettivamente a livello di singolo neurone CMOS e a livello di processore/sistema integrato. I campi non riportati esplicitamente dagli articoli originali sono indicati con ``\ND''.
+
+\begin{sintesiBox}{Risposta alla Domanda Centrale 2: Come si realizza un neurone spiking in CMOS e quali compromessi emergono?}
+Un neurone spiking CMOS integra quattro funzioni fisiche: accumulo di carica con perdita su una capacità di membrana ($\Cmem$), innesco rapido al superamento della soglia (tramite amplificatore/comparatore o feedback positivo in corrente), ripristino con periodo refrattario ($C_R$ / \emph{starved inverters}) ed eventualmente una seconda variabile lenta di adattamento (DPI di AHP o condensatore $C_u$). Le architetture proposte evidenziano un compromesso netto tra quattro assi:
+\begin{itemize}
+  \item \textbf{Analogico sottosoglia puro (DPI, Izhikevich a \SI{250}{\milli\volt}):} minimizza tensione, potenza (pW--nW) e area con costanti di tempo biologiche naturali \emph{real-time}, ma soffre di \textbf{elevata variabilità (\emph{mismatch} 9--30\%)} e ridotta capacità di pilotaggio, richiedendo sovradimensionamento selettivo (ROLLS), reti tolleranti alla topologia (DYNAP-SE2) o apprendimento/calibrazione.
+  \item \textbf{Mixed-signal (neuroni analogici + routing/memorie digitali asincrone):} consente reti scalabili, programmabili e multi-core (ROLLS, DYNAPs, DYNAP-SE2), ma sposta gran parte di area ed energia dalle celle neuronali alle sinapsi, alle CAM e al routing AER.
+  \item \textbf{Soprasoglia accelerato e Switched-Capacitor:} abbatte drasticamente il \emph{mismatch} e offre alta ripetibilità (10 regimi in Mihalas--Niebur S-C; $<10\text{ pJ/spike}$ in Izhikevich accelerato), ma perde la corrispondenza diretta col tempo reale biologico oppure introduce la distribuzione di clock multifase.
+  \item \textbf{Completamente digitale (Xylo, I\&F full-custom):} elimina ogni variabilità analogica e facilita il training con algoritmi standard (BPTT), ma richiede SRAM dedicata, quantizzazione dei pesi e un consumo statico/dinamico dell'ordine di centinaia di microwatt.
+\end{itemize}
+\end{sintesiBox}
+
+\begin{landscape}
+\begin{table}[p]
+  \centering
+  \caption[Confronto tra implementazioni CMOS di singoli neuroni spiking]{Confronto tra le principali implementazioni CMOS di \textbf{singoli neuroni spiking} analizzate nella bibliografia~\cite{indiveri2011, qiao2015, ronchini2023}.}
+  \label{tab:confronto_neuroni}
+  \footnotesize
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabularx}{\linewidth}{@{}L{2.85cm} L{3.35cm} L{1.55cm} L{1.2cm} L{3.0cm} L{3.0cm} L{2.85cm} Y@{}}
+    \toprule
+    \textbf{Neurone CMOS} & \textbf{Stile / Modello} & \textbf{Tecn.} & \textbf{$\Vdd$} & \textbf{Pot.\ / En.\ per spike} & \textbf{Area neurone} & \textbf{Scala temp.\ / Firing} & \textbf{Variabilità / Mismatch} \\
+    \midrule
+    \textbf{Axon-Hillock}~\cite{indiveri2011} & Sub-$V_T$, V-mode, I\&F base & CMOS std & \ND & Alta (cortocircuito inverter) & Molto compatta & \emph{Real-time} & Basso (dominato da $C_{\mathrm{fb}}/\Cmem$) \\
+    \textbf{van Schaik OTA}~\cite{indiveri2011} & Sub-$V_T$, V-mode, I\&F + refr. & CMOS std & \ND & Ridotta vs Axon-H. & Compatta & \emph{Real-time} & Soglia esplicita $\Vthr$; mismatch OTA \\
+    \textbf{Octopus Retina}~\cite{indiveri2011} & Sub-$V_T$, I\&F + fb corrente & \SI{0{,}6}{\micro\meter} & \ND & \textbf{$<\SI{4}{\pico\joule\per\spike}$} & Compatta (pixel) & \emph{Real-time} (spike ns) & Mismatch di soglia inverter \\
+    \textbf{DVS ON/OFF}~\cite{indiveri2011} & Sub-$V_T$, diff.\ capacitivo & \SI{0{,}35}{\micro\meter} & \ND & Ultra-bassa & Compatta (pixel) & \emph{Real-time} ($f_c \approx \SI{0{,}05}{\hertz}$) & \textbf{Molto basso:} $\sim 2\%$ ($1\sigma$, \SI{1}{\milli\volt} eff.) \\
+    \textbf{LLN (LPF)}~\cite{indiveri2011} & Sub-$V_T$, I-mode, cubico 2D & \SI{0{,}25}{\micro\meter} & \ND & $50\text{--}\SI{1000}{\nano\watt}$ & Compatta (16 MOS) & \emph{Real-time} ($\tau_g\sim\SI{100}{\milli\second}$) & Elevato (sottosoglia non calibrato) \\
+    \textbf{DPI (ROLLS)}~\cite{indiveri2011, qiao2015} & Sub-$V_T$, I-mode, AdEx-I\&F & \SI{180}{\nano\meter} & \ND\textsuperscript{a} & Pochi \SI{}{\pico\joule\per\spike}\textsuperscript{b} & \SI{917{,}8}{\micro\meter\squared} ($55{,}7\times\SI{16{,}5}{\micro\meter}$) & \emph{Real-time} ($0\text{--}\SI{140}{\hertz}$ mis.) & \textbf{9,4\%} medio su curva $f\text{--}I$ (transistori larghi) \\
+    \textbf{NET-TEN}~\cite{ronchini2023} & Sub-$V_T$, V-mode, Izhikevich & \SI{180}{\nano\meter} & \SI{0{,}25}{\volt} & $\sim\SI{0{,}12}{\nano\watt}$/n.\ med.\textsuperscript{c} & \SI{1476{,}84}{\micro\meter\squared} & \emph{Real-time} (ISI $\sim 4\text{--}\SI{8}{\milli\second}$) & Elevato (solo 4/10 canali utili senza taratura per cella) \\
+    \textbf{Quadratic I\&F}~\cite{indiveri2011} & Soprasoglia, V-mode, Izhik. & \SI{0{,}35}{\micro\meter} & \ND & \textbf{$<\SI{10}{\pico\joule\per\spike}$} & Compatta (14 MOS) & Accelerato ($10^4\times$) & Basso (inversione forte) \\
+    \textbf{S-C Mihalas--N.}~\cite{indiveri2011} & Switched-Cap, soglia adatt. & CMOS std & \ND & Media (clock multif.) & Media (modulare) & \emph{Real-time} (clockato) & \textbf{Molto basso} (rapporti capacitivi) \\
+    \textbf{Charge-Packet}~\cite{indiveri2011} & Mixed, specchi calibrati & \SI{0{,}35}{\micro\meter} & \ND & Bassa (spike \SI{100}{\nano\second}) & \SI{8100}{\micro\meter\squared} ($90\times\SI{90}{\micro\meter}$) & \emph{Real-time} / veloce & Calibrato a 5 bit con Digi-MOS (3 bit+segno) \\
+    \textbf{Digitale I\&F}~\cite{indiveri2011} & Full-custom digitale & \SI{0{,}35}{\micro\meter} & \ND & Dinamica da clock/agg. & \SI{10000}{\micro\meter\squared} ($100\times\SI{100}{\micro\meter}$) & Alta (spike \SI{50}{\nano\second}) & \textbf{Nullo} (18 bit accum., 5 bit+s pesi) \\
+    \bottomrule
+    \multicolumn{8}{@{}p{\linewidth}@{}}{\scriptsize \textsuperscript{a} Non esplicitata in~\cite{qiao2015} (processo \SI{180}{\nano\meter}; in Fig.~4 di~\cite{qiao2015} $\Vmem$ raggiunge $\sim\SI{1{,}3}{\volt}$). \textsuperscript{b} Stima per il nucleo DPI puro da~\cite{indiveri2011}; in DYNAPs~\cite{moradi2018} l'energia comprensiva di stadio AER/core sale a \SI{260}{\pico\joule} (\SI{1{,}3}{\volt}) o \SI{883}{\pico\joule} (\SI{1{,}8}{\volt}). \textsuperscript{c} Media indicativa su 30 neuroni + 30 sinapsi (\SI{3{,}50}{\nano\watt} totali; statico \SI{0{,}68}{\pico\watt} totali).}
+  \end{tabularx}
+\end{table}
+
+\begin{table}[p]
+  \centering
+  \caption[Confronto tra processori e sistemi neuromorfici integrati]{Confronto a livello di \textbf{processori e sistemi neuromorfici integrati} della bibliografia~\cite{qiao2015, ronchini2023, moradi2018, bartels2025, li2024, wu2026}.}
+  \label{tab:confronto_sistemi}
+  \footnotesize
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabularx}{\linewidth}{@{}L{2.65cm} L{3.25cm} L{1.85cm} L{2.25cm} L{2.95cm} L{3.25cm} L{3.05cm} Y@{}}
+    \toprule
+    \textbf{Sistema} & \textbf{Tecn.\ / Architettura} & \textbf{$\Vdd$} & \textbf{Pot.\ statica} & \textbf{Pot.\ media / dinamica} & \textbf{Energia per spike / evento} & \textbf{Area chip (neuroni \%)} & \textbf{Firing / Variabilità} \\
+    \midrule
+    \textbf{ROLLS}~\cite{qiao2015} & \SI{180}{\nano\meter} Mixed-sig.\ (256n, 128k sin.) & \ND\textsuperscript{a} & \ND & $\sim\SI{4}{\milli\watt}$ (attrattori) & \ND & \SI{51{,}4}{\milli\meter\squared} (neur.\ \textbf{0,47\%}, sin.\ 64,7\%) & $5\text{--}\SI{140}{\hertz}$; mismatch $f\text{--}I$ \textbf{9,4\%} \\
+    \textbf{NET-TEN}~\cite{ronchini2023} & \SI{180}{\nano\meter} Analog.\ sub-$V_T$ (30n, 30 sin.) & \SI{0{,}25}{\volt} (\SI{0{,}3}{\volt} cont.) & \textbf{\SI{0{,}68}{\pico\watt}} & \textbf{\SI{3{,}50}{\nano\watt}} (+ \SI{31}{\pico\watt} cont.) & Cont.\ \SI{11{,}4}{\femto\joule\per\spike} (\SI{148{,}2}{\femto\joule\per\class}) & \SI{1{,}08}{\milli\meter\squared} (1n = \SI{1477}{\micro\meter\squared}) & \emph{Real-time} LFP; mismatch alto (4/10 ch utili) \\
+    \textbf{DYNAPs}~\cite{moradi2018} & \SI{180}{\nano\meter} Multi-core (1k n, 64k sin.) & \SI{1{,}3}{\volt}--\SI{1{,}8}{\volt} & $\sim 250\text{--}\SI{390}{\micro\watt}$\textsuperscript{b} & $0{,}87\text{--}\SI{2{,}7}{\milli\watt}$ (1k n @ \SI{100}{\hertz}) & Gen.\ \SI{260}{\pico\joule}; CAM bcast \textbf{\SI{2{,}2}{\nano\joule}} (@ \SI{1{,}3}{\volt}) & \SI{43{,}79}{\milli\meter\squared} (core \SI{38{,}5}{\milli\meter\squared}; n+s 22,8\%) & $0\text{--}\SI{100}{\hertz}$ (38 Meps/core); mismatch sub-$V_T$ \\
+    \textbf{DYNAP-SE2}~\cite{bartels2025} & \SI{180}{\nano\meter} Mixed-sig.\ + AFE/ADM (1k n) & \SI{1{,}8}{\volt} & \ND & \SI{150}{\micro\watt} (\SI{2{,}8}{\micro\watt\per\ch}) & Modello DYNAPs (\SI{883}{\pico\joule} gen., \SI{6{,}84}{\nano\joule} bcast) & 4 core + AFE (processo \SI{180}{\nano\meter}) & $10\text{--}\SI{600}{\hertz}$; CV bias \textbf{20--30\%} \\
+    \textbf{Xylo}~\cite{li2024} & \SI{28}{\nano\meter} Digitale (1k LIF, 124 KB SRAM) & \SI{1{,}8}{\volt} core / \SI{2{,}5}{\volt} I/O & Inclusa nei \SI{288}{\micro\watt} & \SI{287{,}9}{\micro\watt} core + \SI{87{,}4}{\micro\watt} I/O & \ND & \SI{6{,}5}{\milli\meter\squared} & Clock \SI{250}{\mega\hertz}; mismatch \textbf{0\%} (quant.\ 8 bit) \\
+    \textbf{NeuroSEED}~\cite{wu2026} & \SI{40}{\nano\meter} SoC 32 ch (AFE + ASC + Det. + UWB) & \SI{1{,}2}{\volt} / \SI{0{,}6}{\volt} & Ridotta (\emph{power-gating}) & \textbf{\SI{63{,}61}{\micro\watt}} tot.\ (\SI{1{,}38}{\micro\watt\per\ch} rec.) & UWB \SI{17{,}16}{\pico\joule\per\bit} (\SI{0{,}78}{\nano\joule}/tx-bit eff.) & \SI{0{,}70}{\milli\meter\squared} die (\SI{0{,}16}{\milli\meter\squared} att.; \SI{0{,}0032}{\milli\meter\squared}/ch AFE) & AP biologici ($f_s=\SI{10{,}4}{\kilo\hertz}$/ch); servo EDO $\pm\SI{50}{\milli\volt}$ \\
+    \bottomrule
+    \multicolumn{8}{@{}p{\linewidth}@{}}{\scriptsize \textsuperscript{a} Non dichiarata esplicitamente in~\cite{qiao2015} (processo \SI{180}{\nano\meter}, nominale \SI{1{,}8}{\volt}). \textsuperscript{b} Letto dalla Fig.~11 di~\cite{moradi2018} a \SI{0}{\hertz} (da $\sim\SI{250}{\micro\watt}$ a \SI{1{,}3}{\volt} fino a $\sim\SI{390}{\micro\watt}$ a \SI{1{,}8}{\volt}).}
+  \end{tabularx}
+\end{table}
+\end{landscape}

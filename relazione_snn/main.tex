@@ -1,0 +1,121 @@
+% ==============================================================================
+% FILE PRINCIPALE — Ricerca Bibliografica sulle Spiking Neural Networks (SNN)
+% Compilazione consigliata:
+%   pdflatex main && biber main && pdflatex main && pdflatex main
+% oppure: ./compila.sh
+% ==============================================================================
+\documentclass[11pt, a4paper]{article}
+
+\input{preamble}
+
+% ------------------------------------------------------------------------------
+% METADATI MODIFICABILI (personalizza qui i tuoi dati universitari)
+% ------------------------------------------------------------------------------
+\newcommand{\NomeUniversita}{Università degli Studi di Brescia}
+\newcommand{\NomeDipartimento}{Dipartimento di Ingegneria dell'Informazione}
+\newcommand{\NomeCorso}{Corso di Bioelettronica}
+\newcommand{\AnnoAccademico}{Anno Accademico 2025/2026}
+\newcommand{\NomeAutore}{Nome Cognome}
+\newcommand{\MatricolaAutore}{Matricola: XXXXXX}
+\newcommand{\NomeDocente}{Prof.\ Nome Cognome}
+
+\hypersetup{
+  pdftitle={Spiking Neural Networks per sistemi biomedicali impiantabili: applicazioni e architetture circuitali CMOS},
+  pdfauthor={\NomeAutore},
+  pdfsubject={Ricerca bibliografica di Bioelettronica su SNN, neuroni in silicio CMOS e sistemi biomedicali impiantabili},
+  pdfkeywords={Spiking Neural Networks, LIF, CMOS sottosoglia, DPI, ROLLS, NET-TEN, DYNAPs, DYNAP-SE2, NeuroSEED, Xylo, bioelettronica}
+}
+
+\begin{document}
+
+% ==============================================================================
+% FRONTESPIZIO (stile universitario LaTeX classico)
+% ==============================================================================
+\begin{titlepage}
+  \thispagestyle{empty}
+  \centering
+  \vspace*{0.6cm}
+
+  {\Large\bfseries\MakeUppercase{\NomeUniversita}\par}
+  \vspace{0.25cm}
+  {\normalsize\NomeDipartimento\par}
+  \vspace{0.15cm}
+  {\normalsize\textsc{\NomeCorso}\par}
+
+  \vspace{0.6cm}
+  \rule{\textwidth}{0.6pt}
+  \vspace{1.8cm}
+
+  {\small\textsc{Ricerca Bibliografica}\par}
+  \vspace{0.45cm}
+
+  {\Huge\bfseries
+    Spiking Neural Networks per sistemi biomedicali impiantabili:\\[0.35em]
+    \LARGE applicazioni e architetture circuitali CMOS\par}
+
+  \vspace{1.5cm}
+  \begin{minipage}{0.88\textwidth}
+    \small
+    \begin{center}
+      \textbf{Sintesi}
+    \end{center}
+    \vspace{-0.2cm}
+    La presente relazione esamina le potenzialità delle \emph{Spiking Neural Networks} (SNN) per l'elaborazione locale a bassissimo consumo di biosegnali in dispositivi biomedicali impiantabili. Dopo un inquadramento sui principi del calcolo neuromorfico e sui modelli di neurone spiking — con particolare attenzione al modello \emph{Leaky Integrate-and-Fire} (LIF) e alle sue estensioni adattative — il lavoro approfondisce da un lato le applicazioni cliniche e precliniche a bassa latenza (rilevamento di crisi epilettiche e monitoraggio dell'attività neurale), dall'altro le architetture circuitali CMOS analogiche, \emph{mixed-signal} e digitali per la realizzazione fisica di neuroni e processori neuromorfici. L'analisi si conclude con una valutazione quantitativa critica sul reale vantaggio energetico a livello di sistema rispetto ai costi di acquisizione, sinapsi, memoria e interconnessioni.
+  \end{minipage}
+
+  \vfill
+
+  \begin{minipage}[t]{0.46\textwidth}
+    \raggedright
+    {\small Candidato:}\\[0.25em]
+    {\large\bfseries\NomeAutore}\\[0.15em]
+    {\small\MatricolaAutore}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{0.46\textwidth}
+    \raggedleft
+    {\small Docente del corso:}\\[0.25em]
+    {\large\bfseries\NomeDocente}
+  \end{minipage}
+
+  \vspace{1.2cm}
+  \rule{\textwidth}{0.4pt}
+  \vspace{0.35cm}
+  {\normalsize\AnnoAccademico\par}
+\end{titlepage}
+
+% ==============================================================================
+% INDICE GENERALE, ELENCO FIGURE E TABELLE
+% ==============================================================================
+\pagenumbering{roman}
+\tableofcontents
+\vspace{0.8cm}
+\listoffigures
+\vspace{0.6cm}
+\listoftables
+\clearpage
+
+% ==============================================================================
+% CORPO DELLA RELAZIONE (file modulari in sezioni/)
+% ==============================================================================
+\pagenumbering{arabic}
+
+\input{sezioni/01_introduzione_snn}
+\clearpage
+
+\input{sezioni/02_applicazioni_biomedicali}
+\clearpage
+
+\input{sezioni/03_implementazioni_cmos}
+\clearpage
+
+\input{sezioni/04_analisi_critica_conclusioni}
+\clearpage
+
+% ==============================================================================
+% BIBLIOGRAFIA
+% ==============================================================================
+\addcontentsline{toc}{section}{Bibliografia}
+\printbibliography[title={Bibliografia}]
+
+\end{document}
