@@ -7,33 +7,18 @@
 \subsection{Stili progettuali e tassonomia dei neuroni in silicio}
 \label{subsec:tassonomia_cmos}
 
-La realizzazione fisica di un neurone spiking in tecnologia CMOS (\emph{Silicon Neuron}, SiN) non ammette un'unica soluzione ottima universale: come in biologia esistono molteplici classi neuronali, così in microelettronica la scelta circuitale dipende dal compromesso richiesto tra consumo energetico, fedeltà biofisica, scala temporale, area di silicio e tolleranza al \emph{mismatch} di processo~\cite{indiveri2011}. Riprendendo la classificazione di Indiveri et al.\ (2011)~\cite{indiveri2011}, la Tabella~\ref{tab:tassonomia_sin} riassume i cinque blocchi computazionali tipici di un soma in silicio e le principali dicotomie progettuali.
+Per realizzare un neurone in CMOS, esistono varie soluzioni. Come spiegano in Indiveri et al.\ (2011)~\cite{indiveri2011}, la scelta dipende dall'obiettivo e richiede sempre un compromesso tra consumo energetico, area, precisione, velocità e livello di somiglianza con il neurone biologico~\cite{indiveri2011}.
 
-\begin{table}[tb]
-  \centering
-  \caption[Blocchi funzionali e dicotomie progettuali CMOS]{Blocchi funzionali e dicotomie progettuali per la realizzazione CMOS di neuroni in silicio (adattato da Indiveri et al., 2011~\cite{indiveri2011}).}
-  \label{tab:tassonomia_sin}
-  \footnotesize
-  \begin{tabularx}{\textwidth}{@{}L{3.1cm} Y Y@{}}
-    \toprule
-    \textbf{Dimensione progettuale} & \textbf{Opzione A} & \textbf{Opzione B} \\
-    \midrule
-    Regime MOSFET & \textbf{Inversione debole (sottosoglia):} trasporto per diffusione, correnti $\SI{}{\femto\ampere}\text{--}\SI{}{\nano\ampere}$, potenza minima, costanti di tempo biologiche \emph{real-time}, ma elevato \emph{mismatch}. & \textbf{Inversione forte (soprasoglia):} trasporto per deriva (\emph{drift}), correnti $10^4\text{--}10^5\times$ più grandi, basso \emph{mismatch}, ma tempi accelerati ($10^3\text{--}10^4\times$) o capacità esterne. \\
-    Dominio del segnale & \textbf{Current-mode (log-domain):} stato espresso in corrente ($\Imem$); alta efficienza energetica e compattezza in sottosoglia. & \textbf{Voltage-mode:} stato espresso in tensione ($\Vmem$); mappatura intuitiva delle equazioni differenziali. \\
-    Gestione del tempo & \textbf{Tempo continuo (\emph{non-clocked}):} nessun clock globale, dinamica fisica diretta, zero consumo di distribuzione clock. & \textbf{Tempo discreto (\emph{Switched-Capacitor} / Digitale):} resistenze equivalenti precise via clock; alta riproducibilità ma costo del clock. \\
-    Livello di astrazione & \textbf{Biofisico (conduttanze):} emula singoli canali ionici (es.\ H--H, canale T talamico). & \textbf{Fenomenologico (I\&F / Izhikevich / AdEx):} astrae la dinamica con 1--2 variabili di stato; alta densità di integrazione. \\
-    \midrule
-    \multicolumn{3}{@{}p{\textwidth}@{}}{\textbf{Blocchi funzionali del soma:} (1) Integrazione temporale (lineare/non lineare); (2) Generazione dello spike/evento; (3) Meccanismo di periodo refrattario; (4) Adattamento della frequenza di firing (SFA); (5) Adattamento della soglia di disparo.} \\
-    \bottomrule
-  \end{tabularx}
-\end{table}
+Generalmente un neurone è composto da più blocchi funzionali. Per costruire questi blocchi si possono seguire diversi stili progettuali~\cite{indiveri2011}. Prima di tutto i segnali interni possono essere rappresentati come tensioni oppure come correnti. Poi il circuito può lavorare a tempo continuo senza clock, oppure a tempo discreto tramite capacità commutate. I transistori MOSFET possono lavorare in sottosoglia oppure in inversione forte. Inoltre i circuiti possono operare con costanti di tempo simili a quelle biologiche, quindi si dice che lavorano in tempo reale, oppure molto più velocemente~\cite{indiveri2011}.
 
-Per i dispositivi biomedicali impiantabili, il \textbf{regime sottosoglia (\emph{weak inversion})} riveste un interesse cruciale. In tale regione la corrente di drain di un MOSFET in saturazione dipende esponenzialmente dalla tensione gate-source:
+Per i dispositivi biomedicali impiantabili, il regime di sottosoglia offre molti vantaggi~\cite{indiveri2011}. In questa regione la corrente del transistor dipende in modo esponenziale dalla tensione tra gate e source:
 \begin{equation}
   I_D = I_0 \exp\!\left(\frac{\kappa V_{\mathrm{GS}}}{\UT}\right),
   \label{eq:subthreshold}
 \end{equation}
-dove $I_0$ è la corrente caratteristica di \emph{dark current}, $\kappa$ è il fattore di accoppiamento capacitivo gate-canale (tipicamente $0{,}6\text{--}0{,}8$) e $\UT = k_B T/q \approx \SI{26}{\milli\volt}$ a temperatura ambiente è la tensione termica~\cite{indiveri2011, bartels2025}. Questa legge esponenziale permette di operare con correnti nell'ordine dei picoampere--nanoampere e quindi di sintetizzare \textbf{costanti di tempo biologiche} ($\tau = \Cmem \UT / (\kappa I_\tau) \approx 10\text{--}\SI{100}{\milli\second}$) utilizzando condensatori integrati molto compatti ($\sim\SI{0{,}1}{\pico\farad}\text{--}\SI{1}{\pico\farad}$), senza ricorrere a resistori passivi enormi né a condensatori esterni~\cite{indiveri2011, qiao2015}. Per contro, la stessa dipendenza esponenziale amplifica l'impatto delle variazioni casuali di tensione di soglia $\Delta V_{\mathrm{th}}$ tra transistori nominalmente identici (\emph{device mismatch}, regolato dalla legge di Pelgrom $\sigma_{\Delta V_{\mathrm{th}}} \propto 1/\sqrt{WL}$), generando dispersioni significative nelle correnti di bias e nelle frequenze di firing~\cite{indiveri2011, qiao2015}.
+Questo regime permette di lavorare con correnti piccolissime (fino ai picoampere o femtoampere~\cite{indiveri2011}) e di ottenere costanti di tempo simili a quelle biologiche ($\tau = \Cmem \UT / (\kappa I_\tau)$~\cite{bartels2025}) usando condensatori integrati molto piccoli. Per esempio, in CMOS \SI{180}{\nano\meter} basta un condensatore da \SI{1}{\pico\farad} per ottenere costanti di tempo dell'ordine delle decine di millisecondi~\cite{indiveri2011, qiao2015}.
+
+Se invece si fanno lavorare i transistor in forte inversione, abbiamo meno mismatch, ma le correnti aumentano e le resistenze equivalenti si abbassano drasticamente~\cite{indiveri2011}. Per avere costanti di tempo biologiche servirebbero grossi condensatori esterni al chip~\cite{indiveri2011}. Ovviamente per il sottosoglia c'è il problema del mismatch, quindi generalmente devono essere inclusi dei meccanismi di calibrazione e adattamento~\cite{indiveri2011, qiao2015}.
 
 \subsection{Blocchi circuitali CMOS fondamentali}
 \label{subsec:blocchi_fondamentali}
