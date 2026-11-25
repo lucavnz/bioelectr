@@ -145,7 +145,7 @@ Un aspetto importante del progetto di ROLLS è la riduzione del mismatch. Gli au
 
 Per quanto riguarda le sinapsi, per risparmiare area sul chip tutte le sinapsi di una stessa riga sommano le loro correnti in un unico circuito DPI condiviso~\cite{qiao2015}.
 
-Un dato importante riguarda la distribuzioine dell'area del chip, il cui die è mostrato in figura~\ref{fig:rolls_silicio}a. I 256 neuroni occupano appena lo 0,47\% della superficie (\SI{0{,}235}{\milli\meter\squared}), mentre le 128k sinapsi LTP (31,41\%) e STP (33,32\%) occupano insieme il 64,73\% del die (\SI{33{,}28}{\milli\meter\squared})~\cite{qiao2015}.
+Un dato importante riguarda la distribuzione dell'area del chip, il cui die è mostrato in figura~\ref{fig:rolls_silicio}a. I 256 neuroni occupano appena lo 0,47\% della superficie (\SI{0{,}235}{\milli\meter\squared}), mentre le 128k sinapsi LTP (31,41\%) e STP (33,32\%) occupano insieme il 64,73\% del die (\SI{33{,}28}{\milli\meter\squared})~\cite{qiao2015}.
 
 \subsubsection{NET-TEN (Ronchini et al., 2023): rete analogica ultra-low-power a 250 mV}
 \label{subsec:netten_cmos}
@@ -171,14 +171,14 @@ Un limite dei circuiti in sottosoglia come NET-TEN è la bassa capacità di pilo
 \subsubsection{DYNAPs (Moradi et al., 2018): scalabilità multi-core, memorie eterogenee e routing asincrono}
 \label{subsec:dynaps_cmos}
 
-Quando si passa da piccole reti come NET-TEN (30 neuroni) o ROLLS (256 neuroni) a reti con migliaia di neuroni in cui ciascuno si collega a migliaia di destinazioni, i problemi da affrontare sono la quantità di memoria necessaria per salvare i collegamento e l'energia spesa per smistare gli spike~\cite{moradi2018}.
+Quando si passa da piccole reti come NET-TEN (30 neuroni) o ROLLS (256 neuroni) a reti con migliaia di neuroni in cui ciascuno si collega a migliaia di destinazioni, i problemi da affrontare sono la quantità di memoria necessaria per salvare i collegamenti e l'energia spesa per smistare gli spike~\cite{moradi2018}.
 
 In una rete di $N$ neuroni con fan-out $F$ (numero di destinazioni per neurone), ogni neurone dovrebbe memorizzare $F \log_2(N)$ bit di indirizzi, richiedendo memorie esterne molto grandi~\cite{moradi2018}. Per ridurre questo costo, nel paper di Moradi et al.~\cite{moradi2018} propongono il DYNAPs, con uno schema di routing a due stadi. I neuroni vengono divisi in core locali da $C$ neuroni ciascuno. Nel primo stadio, quando un neurone spara, il router locale del suo core R1 legge una memoria SRAM e invia un codice condiviso, chiamato tag, verso i core di destinazione attraverso una rete di router digitali asincroni, come mostrato in figura~\ref{fig:dynaps_routing}a. Nel secondo stadio, il tag arrivato al core di destinazione viene diffuso contemporaneamente a tutti i $C$ neuroni del core. Ogni neurone ha delle celle di memoria CAM (Content-Addressable Memory) che confrontano il tag ricevuto con gli indirizzi salvati localmente e accettano lo spike solo se trovano una corrispondenza~\cite{moradi2018}. Gli autori dimostrano che la memoria minima per neurone scende a:
 \begin{equation}
   \mathrm{MEM}_{\min} = 2\sqrt{F \log_2(C)\log_2(N)}\;\;\text{bit/neurone}.
   \label{eq:dynaps_mem}
 \end{equation}
-Per esempio in una rete da circa un milione di neuroni $N=2^{20}$ con fan-out $F=2^{13}$ e core da $C=256$ neuroni, la memoria richiesta passa da \SI{160}{\kilo\bit} a di \SI{1{,}2}{\kilo\bit} per neurone~\cite{moradi2018}.
+Per esempio in una rete da circa un milione di neuroni $N=2^{20}$ con fan-out $F=2^{13}$ e core da $C=256$ neuroni, la memoria richiesta passa da \SI{160}{\kilo\bit} a meno di \SI{1{,}2}{\kilo\bit} per neurone~\cite{moradi2018}.
 
 % --- FIGURA 3.6: Architettura di routing R1-R2-R3 e nodo eterogeneo DYNAPs (da Moradi et al., 2018, Fig. 2 e 9) ---
 \begin{figure}[tbp]
